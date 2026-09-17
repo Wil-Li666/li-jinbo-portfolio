@@ -6,9 +6,10 @@
 - 不向现有 origin（参考站仓库）推送，除非用户另行明确要求。
 
 ## GitHub 源码托管
-- 用户仓库：`https://github.com/Wil-Li666/li-jinbo-portfolio`，私有仓库，发布分支 `main`，本地 remote 名为 `github`。
+- 用户仓库：`https://github.com/Wil-Li666/li-jinbo-portfolio`，公开仓库，发布分支 `main`，本地 remote 名为 `github`。
+- 2026-09-17 按用户要求从私有改为公开，GitHub 已确认 `PUBLIC`。公开前扫描两个发布提交及 ZIP/DOCX 内共 238 个文件/条目，未发现常见凭据格式或本地真实密钥匹配；后续提交继续排除密钥及本地留言数据。
 - 2026-09-17 已创建仓库；GitHub CLI 已登录 `Wil-Li666`。CLI 路径为 `%LOCALAPPDATA%/Programs/GitHubCLI/bin/gh.exe`；使用系统凭据存储，不在文档或命令中写入令牌。
-- 2026-09-17 源码首次发布完成：`main` 初始提交 `33f3873b2c5625247d4d546ac8b1459ce3819a0e` 已推送，远端提交与本地一致，仓库保持私有；新版 PDF 的远端 Git blob SHA 与本地一致。`main` 已跟踪 `github/main`。
+- 2026-09-17 源码首次发布完成：`main` 初始提交 `33f3873b2c5625247d4d546ac8b1459ce3819a0e` 已推送，远端提交与本地一致，首次发布时为私有；新版 PDF 的远端 Git blob SHA 与本地一致。`main` 已跟踪 `github/main`。
 - 已连接的 GitHub 账号：`Wil-Li666`。现有 `origin` 为 `https://github.com/ChenYanjun-hub/cyj-personal-web.git`，属于参考站仓库，不是本网站的发布目标。
 - 使用 `git push github main` 更新用户仓库，避免误推参考站；不得强制推送或覆盖目标仓库已有内容。
 - GitHub 首次发布采用当前完整文件快照，避免上传约 190 MB 的参考站历史。原本地历史保留在 `codex/reference-history` 分支；不要将该分支或所有分支批量推送到用户仓库。

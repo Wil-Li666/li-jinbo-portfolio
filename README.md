@@ -2,7 +2,7 @@
 
 最后更新：2026-09-17。已部署 Netlify production：https://li-jinbo-portfolio.netlify.app 。项目 ID、部署记录、验证结果与发布指令见 [AGENTS.md](AGENTS.md)。
 
-源码仓库：[Wil-Li666/li-jinbo-portfolio](https://github.com/Wil-Li666/li-jinbo-portfolio)（私有），主分支 `main`。线上服务由 Netlify 承载，当前使用手动发布，尚未连接 Git 自动部署。
+源码仓库：[Wil-Li666/li-jinbo-portfolio](https://github.com/Wil-Li666/li-jinbo-portfolio)（公开，所有人可查看），主分支 `main`。线上服务由 Netlify 承载，当前使用手动发布，尚未连接 Git 自动部署。
 
 - [项目开发指南与当前状态](docs/PROJECT_GUIDE.md)
 - [运行与内容维护](web/README.md)
