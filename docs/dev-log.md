@@ -1,0 +1,1000 @@
+# 个人求职网页 · 开发日志
+
+## 2026-09-16 · 李金波求职网站改版与资料更新
+
+- 全站资料替换为李金波的简历信息，三个日期明确为项目时间；页面、详情与简历问答统一使用 `web/src/lib/profile.ts`。
+- 按参考站调整建筑线稿首屏、米色履历与能力区、赭红作品集和深色联系区，接入本地文件持久化便签留言板。
+- 使用内置图片生成工具，以 P1 为设计参考、P2 为人物参考制作深蓝「李金波 / AI Product Manager」形象卡，保存到 `web/public/design/li-jinbo-profile-card.png` 并置于教育背景上方。
+- 邮箱更新为 `1033742131@qq.com`，手机号显示更新为 `13986883177`，同步邮件与拨号链接；原始 DOCX 下载文件未修改。
+- 验证：形象卡改动后 lint、构建通过，桌面和手机视口加载成功、无横向溢出；联系方式修改后构建与 HTTP 链接检查通过。
+- 当前仅在 `http://127.0.0.1:3000` 本机预览，尚未公网部署；参考站域名不作为本项目部署地址。
+- 更新 README、项目指南和部署状态说明；原指南归档，以下旧日志保留为上游历史，不代表当前状态。
+
+---
+
+> 本日志按"阶段 / 日期"倒序追加。最新进展在最上面。
+> 用途：记录关键决策、踩坑过程、未决问题，方便回看与继任协作者快速接上。
+> 写作铁律：不编造任何技术细节，遇到不确定的事用"待验证 / 待回填"标注。
+
+---
+
+## 2026-06-08 · 阶段十二：About Me v2 色块化 + 能力对照子幕 v3 editorial 表格（3 次迭代）
+
+### 这一阶段的主线
+关于我（About Me）整幕落地用户拍板的"Jasmine 同款色块导览"方向 · 能力对照子幕经历 3 次方向迭代最终落定 editorial 表格风。
+
+副线：
+- 用户在另一个 session 接入 Claude 机甲虎吉祥物（独立 commit）
+- 一次 Python 脚本 anchor 误匹配导致 hero stage mobile @media 块被误删 + 恢复
+
+---
+
+### Part 1 · About Me 主体 v2 改造
+
+**用户拍板**：参考 GSAP / Brandon Bartram / Jasmine Gunarto 三张图后定 Jasmine 风格 —— 每幕一个色块 + 极致大字 + 零装饰 + 严格构图。
+
+**改动**：
+- `.about` 主体：橄榄绿 `#4A5C0E` 底 + 米黄 `#F0E8D8` 字
+- 巨字标题 `ABOUT YANJUN CHEN`：Bebas Neue condensed 撑满 viewport（next/font/google 本地化引入）
+- 每个字母独立 hover 触发"向左滑出 + 从右划入归位" cycle 动画
+- 双向 IntersectionObserver 写 `body.dataset.section="about"` → fixed nav 字色自动从黑切米黄
+- ProfileCard 蓝色 behind glow 溢出修复（`width: fit-content` + `align-self: center`，配合父 flex 默认 stretch）
+- 工作经历项目重构：主导 1 / 深度参与 5 / 参与 3 三层
+
+**关键技术决策**：
+- `.about` scope 内 redefine `--ink / --ink-2 / --paper` CSS variables —— 所有用 `var(--ink)` 的子选择器自动适配，零 override
+- 字母 hover handler 用 imperative class + `setTimeout(LETTER_CYCLE_MS + 20)` 替代 `onAnimationEnd`，绕开 React fast refresh 偶尔不绑 animationend 事件的坑
+- ProfileCard wrapper 用 `align-self: center` 覆盖父 flex `align-items: stretch`（`margin-inline: auto` 在 stretch 模式下根本不生效）
+
+---
+
+### Part 2 · 能力对照子幕 · 3 次方向迭代
+
+| 版本 | 视觉 | 用户反馈 |
+|---|---|---|
+| **v2 电池组 + 能量带** | 5 对电池（左规划师 / 右 AI PM）+ 中间 SVG path stroke-dashoffset 绘制 + drop-shadow glow | "效果不佳" |
+| **v2.1 苹果磨砂卡片** | 删电池外壳、正极 cap、充电条 → 半透白磨砂卡片 + `backdrop-filter: blur(20px) saturate(160%)` + 多层 inset/外阴影 | "不够有感觉，缺乏极致构图" |
+| **v3 editorial 表格** | 参考用户给的 BLOG 列表图：黑底浅字表头 + 5 行 + 点击展开 leftDetail/rightDetail 双栏 | 方向对，需要再调 |
+| **v3.1 撑满 + 只右栏黑底** | 拆 row 为 `bridge-row-pane-left` / `bridge-row-pane-right` 两个 div；hover/open 只让右 pane 黑底浅字（左栏始终透明）；`.bridge-table` 去 max-width / backdrop-filter / border / box-shadow / border-radius，撑满整幕 | 收口 |
+
+**关键技术决策**：
+- 用 React state（`expanded: Set<string>`）控制 detail 展开（v2 阶段试过纯 CSS `:has()` 触发能量带绘制，v3 改回 React state 因为要点击切换）
+- `role="button" + tabIndex={0} + onKeyDown` 让 row 可键盘可达
+- `prefers-reduced-motion` selector 同步更新（`.bridge-row` → `.bridge-table-row` / `.bridge-detail` → `.bridge-row-detail`）
+
+---
+
+### Part 3 · Claude 机甲虎吉祥物接入（独立 commit）
+
+- 新组件 `claude-pet.tsx`（6 态 sprite：idle / hello / talk / think / sleep / error）
+- `ai-avatar.tsx` 接 streaming / error / hovering 实时计算 `petState`
+- 吉祥物 PNG 资产 `claude-pet.png`（300KB）
+- `.claude-pet` 系列 CSS 已在 globals.css（用户另一个 session 写的）
+
+---
+
+### Part 4 · 踩坑：Python 脚本 anchor 误匹配 → 误删 Hero stage mobile @media
+
+**症状**：v3.1 改动跑完后，窄屏汉堡按钮消失。
+
+**Root cause**：之前用 Python 脚本删 bridge 段的 v1 残留 mobile @media，anchor 是 `"\n/* --- 窄屏适配："`。`str.find()` 找**文件第一个**匹配 —— 文件里实际有多处带冒号的窄屏适配注释，匹配先撞上的是 hero stage 的 `/* --- 窄屏适配：隐藏不适合小屏的元素 --- */`，**不是**预期的 bridge v1 残留。脚本把 hero 那段当成"残留"删了，含 `.stage .nav-hamburger { display: flex; }` 等 8 条窄屏 nav 规则。
+
+**修复**：`git show HEAD:web/src/app/globals.css` 抓回原版完整段，Python 脚本用 ASCII 唯一的 `@keyframes hero-cue-bob {...}` 做 insertion anchor 重新插入。
+
+**学到的教训**：
+1. `str.find()` 在文件多处可能匹配的 anchor 上**只取第一个** —— 用 anchor 前要 grep 一下确认文件里唯一性
+2. 批量 / 移动操作之前用 `print()` 打印 anchor 命中位置（行号 / 字节）确认对了再实际跑
+3. 优先选 **ASCII 唯一字符串**做 anchor（如 `@keyframes ...`），避开中文标点字节差异 + 多处匹配两个坑同时踩
+4. 工具用 Edit 在中文全角括号上反复失败 → 已经踩过 2-3 次了；Python 脚本是稳定 fallback，但 anchor 要更小心
+
+---
+
+### 当前已知开放项
+
+- 吉祥物"切层高级动画"（用户提到待做）
+- v3.1 mobile 视图触屏没 hover，open 后右 pane 持续黑底（视觉一致 OK，但可能要测一下点击区域）
+- 能力对照的 leftDetail / rightDetail 内容仍是 v1 时写的信阳柳林贯穿证据，新加的 8 个工作项目暂未作为 detail 证据使用
+
+### 下一阶段（候选）
+- 能力对照内容微调
+- 转入子幕 b · 具备技能（skills）v2
+- 继续 hero / about 其他细节
+
+---
+
+## 2026-06-08 · 阶段十一：Hero 顶部 nav 重做 + V2 拍方向探索复盘
+
+### 这一阶段的双线
+- **主线（成功）**：Hero 顶部 nav 在 V1 真实代码里小步迭代到位
+- **副线（被推翻）**：尝试做 V2 整体视觉拍方向（3 版独立 mockup，全部被用户否决）
+
+---
+
+### 副线 · V2 拍方向探索复盘
+
+#### 用户给的 3 张视觉参考
+- **GSAP 官网**：黑底 + 巨字 + 玩耍 3D 装饰（弹簧/花瓣）+ 荧光绿 accent
+- **Brandon Bartram 个人站**：浅米绿 + Serif italic + 真人照 + 章节编号 + 复古小花
+- **Jasmine Gunarto 个人站**：暖灰白 + Brutalist condensed + 零装饰 + **每幕一个色块**
+
+#### 我做的 3 版独立 mockup（均在本地 `_design-v2/`，不入仓库）
+- **V2 v1 · X PROTOCOL**：SpaceX/Anthropic Console 风（黑底 + HUD telemetry + scan line + NASA 橘）→ 用户："不好看"
+- **V2 v2 · Warm Playground**：浅米黄 + 装饰物（弹簧/花/立方体/手绘箭头）+ 章节系统 + Serif italic → 用户："加装饰反而让 V1 乱了"
+- **V2 v3 · Gallery**：暖灰白单底 + 极致大字 + 零装饰 + Bebas Neue condensed → 用户切换工作模式："不再做独立 mockup，直接在 V1 上改"
+
+#### 用户的关键洞察（永远记住）
+> "我知道为什么没有高级感了，我们对排版没有花费心思。没有真正设计师的极致构图、颜色搭配和色块构成"
+
+> "我们不纠结打造完美无缺的方案了。首页我想好具体改的小细节我单独和你说。我们直接在 V1 上调整"
+
+#### 工作模式切换（这一阶段最重要的产出）
+- ❌ 不再做独立 HTML mockup
+- ❌ 不再 push "3 个方向 A/B/C 选一个" 这种完整方案
+- ✅ 直接在 `web/` 真实 V1 代码上改
+- ✅ 用户说一个细节，我改一个
+
+---
+
+### 主线 · Hero 顶部 nav 实操
+
+#### 用户的小细节清单（8 条）
+1. nav 在 scroll 时全程固定跟随
+2. 删除左侧 "陈彦均 Yanjun Chen" brand（与中央巨字重复）
+3. 删除 "数字名片" 链接（Hero 自身就是名片）
+4. "About Me" → "关于我"
+5. "视觉与生活" → "其他"
+6. nav 左侧加 status 组：● SHANGHAI, CN + 实时时间（CST）+ 上海坐标 31.2304° N, 121.4737° E
+7. nav 字体整体加粗
+8. 窄屏改为右侧汉堡按钮（宽屏不变）
+
+#### hero.tsx 改动
+- `NAV_LINKS` 简化（6 → 5 个 + 改 2 个 label）
+- 删除 brand JSX
+- 加 `timeRef` + 实时时间 useEffect（强制 `Asia/Shanghai` 时区、12 小时制 + CST 标识、每分钟刷一次）
+- 加 `mobileMenuOpen` state + ESC 监听 + body scroll lock useEffect
+- nav 内加：左 nav-status 组 + 右 hamburger button + mobile menu overlay JSX
+
+#### globals.css 改动
+- `.stage nav` `position: absolute → fixed`（scroll 全程跟随）
+- `justify-content: space-between`（左 status / 右 navlinks 分别靠边）
+- 删除 `.stage .brand` + `.stage .brand .en`（dead CSS 一并清理）
+- 加 `.nav-status / .nav-loc / .nav-loc-dot / .nav-time / .nav-coord` 一组样式（monospace + 加粗 + `tabular-nums` 等宽数字）
+- `.stage .navlinks a` `font-weight: 400 → 700` + color `--ink-2 → --ink`，hover 改 `opacity: 0.55` 反馈
+- 新增 `.nav-hamburger`（默认 hidden）+ `.nav-mobile-menu`（fade + translateY 入场动画）
+- `@media (max-width: 760px)` 新增 3 件：hamburger 显示 / nav-coord 隐藏 / nav-status 字号+gap 收缩
+
+#### 关键设计决策
+- **实时时间用 ref 不走 state**：避免每分钟整个 Hero re-render。直接 `textContent` 改 DOM
+- **mobile menu 全屏暖白覆盖**：`var(--paper)` + fixed inset 0 + z-index 100，比下拉/侧滑更"高级"
+- **`.navlinks` 保留 `margin-left: auto`**：双保险，与 space-between 配合，未来增删左侧元素都不会被挤回左边
+- **汉堡 SVG 最后一根 line 偏移**（x=9 起而非 x=3）：留个小巧思
+
+#### 验证
+- 改动只在 hero.tsx + globals.css，不涉及其他幕 / API / 部署文件
+- dev server 由用户自己跑（按 stage 1 的工作模式约定）
+
+---
+
+### 学到的（这一阶段的教训）
+
+1. **理解 V1 真实现状比"做 V2 方向"更关键** —— 我第 1 版 mockup 基于错误假设（以为 V1 是黑底）做了完全错的方向。下次面对视觉需求，**先要求看 V1 实际截图**再判断方向。
+2. **"加装饰物 ≠ 高级感"** —— GSAP 的弹簧 / Brandon 的小花都是"恰到好处的 1 个点缀"，不是堆装饰。**真正的高级感来自极致构图 + 留白 + 字体本身的 statement**。
+3. **mockup 边际成本是真实的** —— 3 版独立 HTML mockup 各 ~30 分钟，用户反复"不好看"。下次模糊视觉需求时，应该**先在真实 V1 代码里改 1 个细节让用户看效果**，再迭代。
+4. **vibe coding > 系统化设计方案** —— 用户在个人项目里偏好"我说一个细节，你改一个"，比"3 个方向选一个 + 完整 mockup" 节奏更顺。
+
+---
+
+### 当前已知开放问题（不影响 commit）
+
+- **`_design-v2/` 目录归档**：3 版探索 mockup + 截图 + node_modules 留在本地不入仓库。如有归档需要，未来单独建 design 仓库或走 git LFS。
+- **mobile menu 实测未验**：dev server 上需要用户实机测（特别是 mobile 端的 ESC、汉堡、关闭按钮、菜单点击是否流畅）。
+- **nav 跨幕可读性**：fixed nav 黑字在 Hero 浅米黄底可读 ✅，但后续幕（约二~五幕）背景色如果是深色，nav 文字色需要自适应。这个等用户在 dev server 滚到那几幕反馈再处理。
+
+---
+
+### 下一阶段（候选）
+
+- Hero 其他小细节（用户主导）
+- 或转入第二幕（关于我）的小细节调整
+- 或回到 ICP 备案 / 阿里云部署的下一步
+
+待用户拍板。
+
+---
+
+## 2026-06-06 · 阶段十：dead CSS 清理
+
+### 清理对象
+两组遗留选择器（用 `grep` 系统对照 .tsx 引用确认完全 dead）：
+
+**第一组 · about-portrait 段**（阶段三 ProfileCard 替换 next/image 后）：
+- `.about-portrait`
+- `.portrait-placeholder`
+- `.portrait-placeholder > span:first-child`
+- `.portrait-tip`
+- 窄屏 @media 里的 `.about-portrait`
+
+**第二组 · capability-bridge 改造后**（阶段五 chapter 头融入 About Me 后）：
+- `.bridge-eyebrow`
+- `.bridge-rule`
+
+### 操作
+- 三处 Edit 删除 dead 段
+- 保留一行注释 marker，记录"这一带原本是 .about-portrait，已被 ProfileCard 替换；ProfileCard.css 在 components/reactbits/ 命名空间下"
+- 删除前后 grep 对照：全部 7 个类在 .tsx 文件里**零引用**
+
+### 验证
+- `tsc --noEmit` 退出码 0 · 无 warning
+- `pnpm build` 退出码 0 · 5/5 static pages · 路由分配正确（/ static · /api/chat dynamic）
+- globals.css 从约 2430 行精简到 2389 行（减约 40 行）
+
+### 这一波的收尾价值
+代码"干净底子"已经备好。V2 精修阶段可以从一个无包袱的 globals.css 起步。
+
+---
+
+## 2026-06-06 · 阶段九：部署前准备 · 阿里云铺路
+
+### 阶段目标
+负责人正在推进 ICP 备案（已通过阿里云"可备案性"预检），备案完成需 7-20 工作日。
+利用这段窗口期，把所有部署相关文件 + 手册做好——**备案一通过当天就能上线**，零时间损失。
+
+### 阶段成果
+
+#### 1. 本地 production build 验证（`pnpm build`）
+- 退出码 0，所有页面正确分配 static/dynamic：
+  - `/` 静态预渲染（首屏极快）
+  - `/_not-found` 静态
+  - `/api/chat` 动态（流式响应必须 server-rendered on demand）✅
+- 发现并修复一个**隐藏多阶段的真相**：
+  - 阶段二写的 `bundler: 'webpack'` Next 16 根本不识别（build 输出 `Unrecognized key 'bundler'`）
+  - 我们一直在用 Turbopack，不是 webpack
+  - 当时的卡死问题是 `archive 上层 shadcn 残留` 这一步解决的，跟 bundler 选择无关
+  - 修：删 `bundler` 字段 + 在 next.config.ts 写清历史注释
+
+#### 2. `web/ecosystem.config.js` · PM2 进程配置
+- 直接调用 `./node_modules/next/dist/bin/next start`（不走 pnpm，避免 PATH 问题）
+- 单实例 fork 模式（V1 流量量级够；多实例会破坏 `/api/chat` 的内存频率限制 Map）
+- `max_memory_restart: 500M` 防内存泄漏
+- 日志放 `web/logs/`，方便排查
+- **不包含敏感 env**（DEEPSEEK_API_KEY 走 .env.production）
+
+#### 3. `deploy/nginx.example.conf` · Nginx 反代模板
+四个 server 块 + 关键安全/性能配置：
+- HTTP → HTTPS 301 重定向
+- www → 主域名 301
+- 主域名 HTTPS（TLS 1.2/1.3、HSTS 1 年、防点击劫持）
+- gzip + 静态资源长 cache（`/_next/static` 1 年 immutable）
+- **`/api/chat` 路径 `proxy_buffering off`**（关键！否则 SSE 流式会被 buffer 成一次性输出）
+- Let's Encrypt challenge 路径不走 301（方便续签）
+
+#### 4. `deploy/README.md` · 完整部署手册
+从空白阿里云 ECS 到 https://cyjpersonalweb.cn 可访问的 11 步流程：
+1. SSH + 系统更新 + 防火墙
+2. Node 24 LTS + pnpm
+3. PM2 全局安装
+4. Nginx 安装 + 默认启动验证
+5. 克隆仓库 + pnpm install + pnpm build
+6. 配 `.env.production` + chmod 600
+7. PM2 启动 + pm2 save + pm2 startup（开机自启）
+8. Nginx 反代配置
+9. Let's Encrypt 签 SSL 证书（含 DNS 解析提示）
+10. 还原完整 Nginx 配置 + reload
+11. 国内 curl 验证 + 浏览器验证
+
+附带：后续维护（git pull + pnpm build + pm2 reload）、SSL 自动续签、监控日志、常见问题排查、上线后 24 小时安全清单。
+
+#### 5. `web/.env.production.example` · 生产 env 模板
+- `DEEPSEEK_API_KEY=sk-your-production-key-here`（推荐生产 / 开发用不同 key 方便监控）
+- 备注：NODE_ENV / PORT / HOSTNAME 已在 ecosystem.config.js 里，不重复
+
+### Build 关键数据
+
+```
+Next.js 16.2.6 (Turbopack)
+✓ Compiled successfully in 8.2s
+✓ TypeScript in 1023ms
+✓ Generating static pages 5/5 in 154ms
+
+Route (app)
+┌ ○ /              (Static · prerendered)
+├ ○ /_not-found    (Static)
+└ ƒ /api/chat      (Dynamic · server-rendered on demand)
+```
+
+### 备案通过后的极简上线流程
+
+按 deploy/README.md 走一遍，从买服务器到上线大概 **2-3 小时**。如果熟练 + 网络快，1 小时内能完成。
+
+### 下一阶段候选
+- 内容补全（等负责人按节奏补 · 不阻塞）
+- V2 精修（V1 内容到位后，按"框架/内容/排版/装饰"四类）
+- 部署当天的远程协助（备案通过那天我手把手陪你走 11 步）
+
+---
+
+## 2026-06-06 · 阶段八：AI 分身实测通过 · 今日 closure
+
+### 实测反馈
+负责人配好 `DEEPSEEK_API_KEY` 后实际跑通 AI 分身——**无问题**。
+（详细对话测试用例没单独留底；如果将来需要回归测试，参考阶段七 dev-log 里的"建议测试用例"清单跑一遍即可）
+
+### V1 收口剩余清单（按用户节奏推进）
+
+**[负责人]** 内容补全：
+- 项目事实档案：A.1-A.7 云上米轨 / B.1-B.8 建景规（填到分身知识库，我同步进 portfolio.tsx）
+- GALLERY 多媒介作品图（素描 / 水彩 / 刀画 / 丙烯 / 速写）
+- CRAFT 生活切片图（3D 打印 + 骑行）
+- BOOKSHELF 真实书单 + 一句感想
+- 精选寄语 3-5 句（提前张口求人）
+- 简历 PDF（放到 `web/public/resume.pdf`）
+- 本人照片 `me.png` 替换（V2 阶段如果想换更新的）
+
+**[并行]** 基础设施：
+- 域名 `cyjpersonalweb.cn` ICP 备案推进
+- 阿里云部署（备案完成后做 PM2 + Nginx + HTTPS）
+
+### V2 精修议程（V1 收口后启动）
+负责人在最后一段反馈里明确的四类整体优化方向：
+1. **整体框架** — 五幕顺序 / 章节分割 / 贯穿头 / nav 导航
+2. **内容** — 文字打磨 / 真实素材落地
+3. **版面排版** — 字号 / 字距 / 留白 / 对齐网格 / 响应式断点
+4. **装饰元素** — 线稿规划图底图 / hairline 装饰线 / accent 点缀位置 / AIGC 城市轴测复用
+
+由负责人在 V1 收口到位后发起。
+
+### 今日状态
+- 8 个原子 commit 完整记录所有阶段
+- GitHub 远端同步（`https://github.com/ChenYanjun-hub/cyj-personal-web`）
+- 本地工作区干净
+- V1 骨架 + AI 分身完整可跑
+
+---
+
+## 2026-06-06 · 阶段七：AI 数字分身（DeepSeek + 悬浮组件）🤖
+
+### 1. 阶段成果
+
+#### 1.1 三层架构（PROJECT_GUIDE 第 55-57 行铁律落地）
+
+```
+前端                           后端                          上游
+─────                          ─────                         ─────
+ai-avatar.tsx       ━━fetch━━▶  /api/chat (route.ts)  ━━SSE━▶  DeepSeek
+（client component）            （Next.js Route Handler）       （api.deepseek.com）
+                                · DEEPSEEK_API_KEY 服务端
+                                · 频率/长度防护
+                                · 拼 system prompt
+```
+
+#### 1.2 文件清单
+
+**lib/ai-avatar/** (后端逻辑层 · 可替换层封装)：
+- `types.ts` 前后端共享类型 + CHAT_LIMITS 防护常数
+- `prompt.ts` 系统提示词（约 500 行 · 整合分身知识库 1-6 类全部素材）
+- `deepseek.ts` DeepSeek 客户端（手写 fetch + SSE 解析 · 零第三方 SDK）
+
+**app/api/chat/route.ts** (Route Handler)：
+- POST 接口接收 ChatMessage[]
+- 校验：messages 长度 ≤ 10、单条 ≤ 1000 字、role 限定 user/assistant
+- 频率限制：IP 维度 · 1 分钟 12 次
+- 拼上 system prompt（每次都加，客户端无法覆盖）
+- 转 chunked text/plain 流式返回（含 X-Accel-Buffering: no 给 Nginx）
+
+**components/ai-avatar/ai-avatar.tsx** (前端悬浮组件)：
+- 右下角圆形泡泡（accent 橙红，hover scale + 阴影加深）
+- 点击展开 380×620 chat 面板（移动端占视口下半）
+- 欢迎语 + 4 个预设问题（"他的核心优势"/"为什么转 AI"/"AI 项目"/"JD 匹配"）
+- 流式接收：fetch + ReadableStream + 实时 append delta 到当前 assistant 消息
+- Enter 发送 · Shift+Enter 换行 · ESC 关闭
+- 错误时移除空 assistant 占位 + 显示错误横幅
+
+**layout.tsx**：在 body 末尾挂 `<AiAvatar />` · 全站可见
+
+**globals.css**：追加 `.ai-avatar-*` 段约 240 行 · 含移动端窄屏适配
+
+**.env.example**：DEEPSEEK_API_KEY 模板 + 配置说明
+
+#### 1.3 系统提示词覆盖
+完整整合分身知识库（采集清单第 1-6 类）：
+- 身份定位 / 转型故事 / 实际投入 / 人生信条
+- 5 组规划训练可迁移能力对照（信阳柳林贯穿证据）
+- 4 板块硬技能（动词分级，绝不用百分比）
+- 3 个核心优势 + 3 个短板 + 适合/不适合岗位
+- 5 条行为铁律（防幻觉 / 隐私 / 角色坚守 / 话题收敛 / 学历问题）
+- 标准问答 4 例 + JD 匹配模式
+- 默认温度 0.4 · max_tokens 1500 · 回答控制 200 字内
+
+---
+
+### 2. 顺手修了两个老的 type error
+（如果不修 `pnpm build` 会失败 → 阿里云部署失败）
+
+#### 2.1 `next.config.ts` 的 `bundler: "webpack"` 字段
+- Next 16 运行时支持，但 NextConfig 类型声明里还没正式 export
+- 修：加 `@ts-expect-error` 注释 + 详细原因
+
+#### 2.2 ProfileCard.jsx 的 props 推导
+- TSC 从 JSDoc 推导把所有 props 都看作 required，实际很多有 default
+- 修：新建 `web/src/components/reactbits/types.d.ts`，用 `declare module` 给 ProfileCard 提供正确的可选 props 类型
+- 设计：不动 `.jsx` 原文件，保持 jsrepo 同步能力。未来新 reactbits 组件按同样模式加
+
+---
+
+### 3. 关键决策记录
+
+**为什么不用 Vercel AI SDK / Chat SDK**：
+PROJECT_GUIDE 铁律"不依赖境外服务（Vercel 已排除）"+ 我们部署到阿里云不是 Vercel。AI Gateway / Vercel Functions runtime API 完全用不上。手写 fetch + SSE 才 50 行，可替换层就在 `deepseek.ts` 单文件里——换通义 / 智谱 / Kimi 只改这一个文件。
+
+**为什么用 deepseek-chat 不用 deepseek-reasoner**：
+本场景（基于资料诚实答问 + JD 匹配）不需顶尖推理，需要"听话、不乱编、能被 system prompt 严格约束"。deepseek-chat 响应快、便宜（每 1M token 几分钱）、指令遵循好。
+
+**为什么默认 temperature: 0.4**：
+PROJECT_GUIDE 铁律"严防幻觉"。低温度让模型更严格贴合 system prompt，少发挥。
+
+**为什么内存频率限制（不用 Redis）**：
+V1 单实例够用。阿里云上线后如果开多实例需要换 Redis 或 KV，已在代码注释里标注。
+
+---
+
+### 4. 待你做的事（在浏览器测试前）
+
+1. **拿 DeepSeek API Key**：https://platform.deepseek.com 注册（如果还没的话）
+2. **创建 `.env.local`**：
+   ```bash
+   cd web
+   cp .env.example .env.local
+   ```
+3. **编辑 `.env.local`**：把 `DEEPSEEK_API_KEY=sk-your-key-here` 换成真实 key
+4. **重启 dev server**（env vars 必须重启才生效）
+5. **浏览器** http://localhost:3000 右下角应该出现**橙红色泡泡按钮**，点击展开
+6. **测试**：
+   - 点 4 个预设问题之一
+   - 自己输入问题
+   - 试试问敏感问题（薪资 / 手机号），看是否按铁律拒绝
+   - 试试 JD 匹配："这是 XX 公司 AIPM 岗位的 JD：……"
+
+---
+
+### 5. V1 全部完成
+
+至此 PROJECT_GUIDE 第 6 节 V1 清单**全部到位**：
+- ✅ 技术选型确认 + 项目搭建 + 视觉规范 + 组件骨架
+- ✅ 六幕（重构成 5 幕）全部做出来（第三幕作品集用静态分区图 + 卡片）
+- ✅ AI 分身做进 V1（最大差异化亮点）
+- ✅ 基础移动端适配（所有幕都有 `@media (max-width: 760px)`）
+- 🟡 阿里云部署（备案完成后）
+- 🟡 上线后确认国内能稳定打开 + 分身能稳定调用
+
+---
+
+## 2026-06-06 · 阶段六：第五幕收尾 · V1 整体骨架达成 🎉
+
+### 1. 阶段成果
+
+#### 1.1 第五幕 closing.tsx
+按 PROJECT_GUIDE 第 6 节（重编号后是第五幕）三构成：
+
+- **TESTIMONIALS** 精选寄语墙（主）
+  - 真实评价 · 非开放评论（防垃圾 + 防冷清）
+  - 引言式排版：左侧 2px 实线 + 大字 quote + cite
+  - 占位：3 条 dashed 边框 + 灰色斜体（待负责人提前求人收集）
+
+- **GET IN TOUCH** 联系方式 CTA
+  - 召唤语 `如果你在找一个 会动手的 AI 产品经理`（PROJECT_GUIDE 第 228 行原话）
+  - 召唤语里"会动手的 AI 产品经理"用 accent 橙红 #D8552E + 得意黑 Oblique → 与 Hero tagline 视觉呼应
+  - 3 行联系：EMAIL · GITHUB · RESUME（mono 标签 + 大字 link + 箭头）
+  - 隐私边界提示（手机号 / 微信不直接公开）
+
+- **MESSAGES** V2 折叠留言入口（占位）
+  - dashed 占位框，说明"V2 上线 + 走 Supabase 后端中转"
+  - 给定 `id="board"` 对应 Hero nav 的 `#board` 锚点
+
+- **Footer**
+  - "看到这里 · 感谢你给我的 30 秒"
+  - "© 2026 陈彦均 · 用 Claude Code vibe coding 自己打的"
+
+#### 1.2 改动
+- 新建 `web/src/components/sections/closing.tsx`
+- `globals.css` 追加 `.closing` 段约 280 行
+- `page.tsx` 在 `<Life />` 后挂载 `<Closing />`
+- 给 MESSAGES 板块加 `id="board"`，Hero nav 全部锚点联通
+
+---
+
+### 2. 🎯 V1 整体骨架 · 里程碑
+
+**全部五幕到位**：
+
+| 幕 | 组件 | 状态 |
+|---|---|---|
+| 第一幕 | Hero · 数字名片 | ✅ 含 Claude Design 移植 + 得意黑 + tagline + 十字准星 + 入场动画 |
+| 第二幕 | About Me 章节 | ✅ 主体（ProfileCard 3D 倾斜 + 闪卡水印）+ 能力对照 + 具备技能 |
+| 第三幕 | Portfolio | ✅ CORE / WIP / LAB 三板块 + inline 展开（详情待负责人补） |
+| 第四幕 | Life & Vision | ✅ GALLERY / CRAFT / BOOKSHELF（素材待负责人补） |
+| 第五幕 | Closing | ✅ TESTIMONIALS（待寄语）+ Contact CTA + Footer |
+
+**Hero nav 锚点全部联通**：
+- `#card` → Hero
+- `#about-me` → AboutMe（章节起点）
+- `#work` → Portfolio
+- `#life` → Life
+- `#contact` → Closing 章节起点
+- `#board` → Closing 内 MESSAGES 板块
+
+**视觉语言全站一致**：
+- 第二~第五幕都是黑白单色 / 全大写英文板块标题 / hairline / 克制留白
+- Hero 是色彩入口（accent #D8552E + 得意黑 + 十字准星）
+- accent 在收尾召唤语处呼应一次，整站收闭环
+
+---
+
+### 3. V1 完成后待办（按优先级）
+
+#### 3.1 内容补全（负责人）
+- **作品集事实档案**：A.1-A.7 云上米轨 / B.1-B.8 建景规（详见阶段四）
+- **视觉素材**：6 张多媒介作品 + 3D 打印 + 骑行（详见阶段五）
+- **书架真实书单**：四类 + 每本一句感想
+- **精选寄语**：提前求人收集 3-5 句
+- **简历 PDF**：放到 `web/public/resume.pdf`
+
+#### 3.2 V1 还差的关键功能
+- **AI 数字分身**（PROJECT_GUIDE 核心差异化亮点）：`/api/chat` + DeepSeek + 系统提示词 + 防护 + 悬浮组件 UI
+- **阿里云部署**：备案完成后做（Node + PM2 + Nginx + HTTPS）
+
+#### 3.3 V1 polish（次优先）
+- 全站 dead CSS 清理（`.about-portrait` 等遗留）
+- capability-bridge / skills / closing 里 `{cond && <JSX/>}` 模式按 React Best Practices 改 ternary
+- AIGC 城市轴测线稿底图叠到 Portfolio（V2 视觉外壳）
+
+---
+
+## 2026-06-06 · 阶段五：第四幕视觉与生活骨架（GALLERY / CRAFT / BOOKSHELF）
+
+### 1. 阶段成果
+
+#### 1.1 第四幕 life.tsx
+按 PROJECT_GUIDE 第 5 节（重编号后是第四幕）三板块结构：
+
+- **GALLERY** 视觉创作（主体）：
+  - 顶部"素描 · 专业 8 级证书"徽章（PROJECT_GUIDE 王牌 · 官方背书的硬资质）
+  - 多媒介作品 6 格网格：素描 / 水彩 / 刀画 / 丙烯 / 速写 / AIGC
+  - AIGC 这格直接复用 `/hero-bg.png`（城市轴测，规划标注作品）
+  - 每张图配标题 + 媒介标签 + 一句话
+
+- **CRAFT** 生活切片（轻量）：
+  - 3D 打印（爱动手）+ 骑行（活力）
+  - 2 格大卡片，4:3 比例
+
+- **BOOKSHELF** 我的书架（杀招）：
+  - 四列：AI / BUSINESS / PRODUCT / PHILOSOPHY
+  - 每本书：title + 一句感想（PROJECT_GUIDE 铁律：只放真读过的）
+  - 当前全部占位"待负责人补 · 真读过 + 一句感想"
+
+#### 1.2 视觉策略
+- 与 About Me / Portfolio 同源：黑白单色 / 全大写英文板块标题 / hairline / 克制留白
+- 占位策略：图片用 dashed 边框 + 中央 `TBD` + 媒介标签；文字用斜体灰色
+
+#### 1.3 改动
+- 新建 `web/src/components/sections/life.tsx`
+- `globals.css` 追加 `.life` 段约 320 行
+- `page.tsx` 在 `<Portfolio />` 后挂载 `<Life />`
+
+---
+
+### 2. 待补素材清单（提供给负责人）
+
+#### 2.1 GALLERY · 多媒介作品图
+负责人需要从画作中选若干张代表作，放到 `web/public/` 下，命名规则建议：
+- `art-sketch.jpg` 素描
+- `art-watercolor.jpg` 水彩
+- `art-knife.jpg` 刀画
+- `art-acrylic.jpg` 丙烯
+- `art-photo.jpg` 摄影
+
+补好后告诉我，我把 ARTWORKS 数组里 `src: null` 改成对应路径。
+
+#### 2.2 CRAFT · 生活切片图
+- `craft-3d-print.jpg` 3D 打印作品
+- `craft-cycling.jpg` 骑行场景
+
+#### 2.3 BOOKSHELF · 书单
+四类（AI / 商业分析 / 产品经理 / 哲学），每类 2-4 本。
+**铁律（PROJECT_GUIDE）**：只放真读过、聊得出来的书（面试会被问）。
+每本配一句感想 / 为什么读 → 把书架变成你的大脑。
+
+---
+
+### 3. 下一阶段
+
+第五幕 · 收尾：精选寄语墙 + 折叠留言入口（V2 Supabase）+ 联系方式 CTA
+- 已知公开信息：邮箱 tmml1770998584@163.com / GitHub @ChenYanjun-hub
+- 待负责人提前求人收集：3-5 句精选寄语（前同事 / 师长 / 合作者）
+
+---
+
+## 2026-06-06 · 阶段四：第三幕作品集骨架（CORE / WIP / LAB 三板块）
+
+### 1. 阶段成果
+
+#### 1.1 第三幕 portfolio.tsx
+- 三板块结构（PROJECT_GUIDE 4.4 节"主次分明，绝不平铺"原则）：
+  - **CORE**：2 个深度项目（云上米轨 + 建景规规范问答助手）
+    - 大卡片 + chevron 展开 6 字段详情
+    - 卡片头部：项目名 + 类型 + 一句话定位 + 技术栈 chips + 亮点 bullets
+    - 展开后：项目定位 / 背景问题 / 我的角色 / AI 技术范式 / 成果 / 反思
+  - **WIP**：3 个待建项目（MOOGU 野生菌 / 多 Agent 助手 / 合同审阅）
+    - 中卡片 + **虚线边框**（视觉传达"规划中"）
+    - 一句话方向 + 验证目标
+  - **LAB**：2 个 Coze 已发布（失恋陪伴 / AI 情感伴侣 V1）
+    - 中卡片 + 平台标 + 设计要点（三层记忆架构）
+
+#### 1.2 视觉策略
+- 与 About Me 同源：纯黑白单色 / 全大写英文板块标题（PORTFOLIO / CORE / WIP / LAB）/ hairline 分隔 / 克制留白
+- PROJECT_GUIDE 第 166 行原方案的"线稿城市规划图"底图 V1 不依赖（用"分区 + 卡片"承担规划图视觉隐喻）
+- V2 阶段负责人提供 AIGC 城市轴测线稿后再叠上去
+
+#### 1.3 交互
+- inline 展开（用户在阶段四之前确认）：点击 chevron 在原位展开详情，不跳路由
+- 入场动画：IntersectionObserver 触发 stagger fade-in（title → subtitle → CORE → WIP → LAB）
+- 尊重 `prefers-reduced-motion`
+
+#### 1.4 改动
+- 新建 `web/src/components/sections/portfolio.tsx`
+- `globals.css` 追加 `.portfolio` 段约 280 行
+- `page.tsx` 在 `<Skills />` 后挂载 `<Portfolio />`
+
+---
+
+### 2. 重要约定
+
+#### 2.1 6 字段详情面板的占位策略
+分身知识库第二类（项目详情）里 A.1-A.7 和 B.1-B.8 字段**全空**。
+当前所有 Core 项目展开后都显示 `待负责人补全 · TBD`（斜体 + 灰色 + opacity 0.6）。
+诚实表达"内容未到位"，避免编造。
+
+#### 2.2 提供给负责人的"事实档案待补全字段清单"
+
+**项目 A · 云上米轨**：
+1. A.1 这个项目是什么？解决什么问题？
+2. A.2 谁是 B 端（付费方），谁是 C 端（终端用户）？各自诉求？
+3. A.3 我的具体角色？负责哪些部分？
+4. A.4【重点】我做了哪些关键产品决策？为什么这么决策？尤其：怎么平衡 B 端和 C 端的不同诉求
+5. A.5 用了哪些 AI 能力/技术？
+6. A.6 现在做到什么程度？有什么成果或数据？（没有真实数据就如实写完成度）
+7. A.7 踩过的坑 / 最大的反思
+
+**项目 B · 建景规规范问答助手**：
+1. B.1 这个项目是什么？目标用户？解决什么痛点？
+2. B.2 我的具体角色？负责哪些部分？
+3. B.3【分水岭 1】为什么选 RAG 而不是直接问通用大模型？怎么处理"幻觉"？
+4. B.4【分水岭 2】怎么定义"回答得好不好"？做过什么 eval？哪怕自测准确率对比
+5. B.5 知识库怎么构建和更新的？
+6. B.6 技术选型（向量库 / embedding / 重排等，会多少写多少）
+7. B.7 现在做到什么程度？测试效果如何？
+8. B.8 踩过的坑 / 最大的反思（如"专业领域 RAG 最难的不是技术而是知识库质量"这类洞察很值钱）
+
+→ 这些填到 `md/分身知识库采集清单.md` 对应字段后，我可以一次性同步进 portfolio.tsx 的 `detail` 数据。
+
+---
+
+### 3. 待办
+
+- **[负责人]** 上方 A.1-A.7 + B.1-B.8 字段补全（按需）
+- **[负责人]** 提供 AIGC 城市轴测线稿底图（用作 V2 portfolio 视觉外壳）
+- **[Claude Code]** 下一阶段：第四幕视觉与生活
+- **[Claude Code]** 全站收尾 polish 时清理 dead CSS（`.about-portrait` 等遗留）
+
+---
+
+## 2026-06-06 · 阶段三：About Me 头像升级为 ProfileCard（3D 倾斜 + 闪卡水印）
+
+### 1. 阶段成果
+
+#### 1.1 装入 reactbits.dev 的 ProfileCard（JS-CSS 版本）
+- 通过 `npx jsrepo@latest add https://reactbits.dev/r/ProfileCard-JS-CSS` 拉源码
+- 装到 `web/src/components/reactbits/`（`ProfileCard.jsx` + `ProfileCard.css`）
+- 用 `jsrepo.config.mts` 配置 paths + 装 `jsrepo` + `@jsrepo/transform-javascript` 作 devDeps
+- 国内可达 ✅（reactbits.dev 自己的 CDN，没踩 GitHub raw 国内被墙的坑）
+
+#### 1.2 视觉资产到位
+- `web/public/me.png`：负责人提供的**透明背景人物半身像**（1254×1254 RGBA）
+- `web/public/pc-grain.webp`：闪卡水印 L 形钻石点阵纹理（reactbits 官方 demo asset）
+- `web/public/pc-icon.png`：卡片右上角装饰图标
+- 后两个从 `https://reactbits.dev/assets/demo/` 直接 curl 下来
+
+#### 1.3 about-me.tsx 集成
+- 左栏头像从 `<Image fill>` → `<Image width/height>` → 最终 **`<ProfileCard>`**
+- props：`avatarUrl="/me.png"` + `iconUrl="/pc-icon.png"` + `grainUrl="/pc-grain.webp"` + `showUserInfo={false}` + `enableTilt={true}`
+- 保留 `CHEN YANJUN` 大字签名在卡片下方
+
+#### 1.4 globals.css ProfileCard override
+- `.about .pc-avatar-content { mix-blend-mode: normal !important; }`
+- 同步 `.about .pc-content`，保护 details 不被 luminosity 染色
+
+---
+
+### 2. 踩坑记录
+
+#### 2.1 ❗ jsrepo `paths` 必须按"type"配置，`*` 通配不够
+**症状**：`No path was provided for ProfileCard-JS-CSS of type component`。
+
+**修复**：用 `npx jsrepo init <registry> --js` 让它自动生成 `jsrepo.config.mts`，
+然后手动填 `paths: { "*": "./src/components/reactbits" }`，且 jsrepo 在 init 时自动追加了 `component: "./src/components/reactbits"` 双保险。
+
+#### 2.2 ❗ 第一次效果：人物照片被彩虹染色（误判）
+**症状**：把白底带文字的 me.png 喂给 ProfileCard，整张照片被 shine 染成彩虹乱码。
+
+**根因**：ProfileCard 的 avatar 设计前提是**透明背景的人物半身像**（参考图 Javi 那种）。白底 PNG 加上 shine 的 `mix-blend-mode` → 灾难。
+
+**修复**：负责人重新提供透明背景 PNG（macOS 内置"移除背景"功能）。
+
+#### 2.3 ❗ 第二次效果：人物清晰了但还在被 luminosity 染色
+**症状**：换透明 PNG 后，人物轮廓出来了，但仍然彩色失真。
+
+**根因**：`.pc-avatar-content` 默认 `mix-blend-mode: luminosity`，让人物自身参与彩色反光。这个设计前提是 avatar 是**黑白调照片**（参考图 Javi 是黑白）。我们是彩色照片走 luminosity 颜色崩溃。
+
+**修复**：globals.css 加 `.about .pc-avatar-content { mix-blend-mode: normal !important; }`。
+
+#### 2.4 ❗ 闪卡水印完全没出现
+**症状**：人物正确了，但参考图里那种"钻石 L 形纹理"完全没显示。
+
+**根因**：ProfileCard 的 grain 纹理由 `grainUrl` prop 提供，我没传。`--grain: none` 默认下 grain 层透明 → 完全看不到水印。
+
+**修复**：从 reactbits 官方 demo 下载 `grain.webp` + `iconpattern.png`，传给 ProfileCard。
+
+---
+
+### 3. 待办（不阻塞当前 commit）
+
+- **[Claude Code]** capability-bridge.tsx / skills.tsx 里的 `{cond && <JSX/>}` 模式按 React Best Practices 改成 ternary（小 polish）
+- **[Claude Code]** 不再使用的 `.about-portrait` / `.portrait-image` / `.portrait-placeholder` 等 CSS 段可以清理（dead code）
+- **[负责人]** 分身知识库教育/工作字段补全
+- **[负责人]** ICP 备案推进
+
+---
+
+### 4. 下一阶段候选
+
+- 第三幕 · 作品集（PROJECT_GUIDE 4.4，V1 静态分区版）
+- AI 分身后端骨架（DeepSeek + `/api/chat`）
+- 全站子幕 polish + 章节贯穿头是否保留拍板
+
+---
+
+## 2026-06-06 · 阶段二：第二幕重构为 About Me 章节（三子幕架构）
+
+### 1. 阶段成果
+
+#### 1.1 架构调整：第二幕从"信任引擎"升级为"About Me 人物主章"
+PROJECT_GUIDE 原方案是平铺 6 幕（Hero / 能力对照 / 能力技能 / 作品集 / 视觉与生活 / 收尾）。
+本阶段把"能力对照"和"能力技能"**降级为 About Me 章节内的两个子幕**，形成 5 幕结构：
+
+```
+第一幕 · Hero
+第二幕 · About Me（章节）
+        ├─ 主体：我是谁（信息看板）
+        ├─ 子幕 a：能力对照
+        └─ 子幕 b：具备技能
+第三幕 · 作品集
+第四幕 · 视觉与生活
+第五幕 · 收尾
+```
+
+Nav 锚点从 7 项合并到 6 项（`#card / #about-me / #work / #life / #contact / #board`）。
+
+#### 1.2 第二幕主体（about-me.tsx）按 LIUWENTAO 参考图严格复刻
+- **关键学习**：我第一版凭空设计（圆形头像 / 装饰小标题 / accent 色 / CTA 按钮），被负责人当场指出"瞎设计"。
+  之后负责人提供 LIUWENTAO 参考图 → 按参考图严格 visual recreation。
+- 视觉语言：左右双栏 / 纯黑白单色 / 全大写英文板块标题 / 拼音姓名签名 / 底部 "Project" 滚动提示。
+- 内容数据：教育 = 南京工业大学 2019.09—2024.06 / 工作 = 同济规划设计研究院分院下属上海隆际 2025.04—2026.05 / AI 项目 3 个（云上米轨 / 建景规 / 合同审查助手）。
+
+#### 1.3 子幕 a：能力对照（capability-bridge.tsx）
+- 5 行双栏对照（左规划师 / 右产品能力），内容来自分身知识库 1.4 节定稿。
+- 交互：点击 chevron 展开/收起具体场景（信阳柳林证据）+ IntersectionObserver 入场 stagger。
+- 收尾"承认短板"段落（按 PROJECT_GUIDE 第二幕规格"必须保留"）。
+
+#### 1.4 子幕 b：具备技能（skills.tsx）
+- 4 板块卡片：AI 产品能力 / 产品设计与方法 / 技术与动手能力 / 专业领域&工具。
+- 内容来自分身知识库第三类定稿。
+- 表现形式铁律（PROJECT_GUIDE）：**绝不用百分比/星级/进度条**，用"熟练 / 能运用 / 了解学习中"动词分级。
+
+#### 1.5 设计 token 调整
+- About Me 章节系统去掉 accent 装饰，纯黑白单色（呼应参考图）。
+- accent `#D8552E` 仍是 Hero 的视觉签名色（十字准星 + 坐标 + tagline op），但不外溢到第二幕。
+
+---
+
+### 2. 决策记录
+
+#### 2.1 为什么从 6 幕改为 5 幕（合并能力对照 + 能力技能 进 About Me）
+原 6 幕里"能力对照（软潜质）"和"能力技能（硬技能）"本质都在回答"我是谁"的不同侧面。
+合并进 About Me 后叙事更紧凑：HR 进入 About Me 章节 = 完整理解这个人；
+作品集（第三幕）开始 = 实证；之后是人格与收尾。
+
+#### 2.2 章节贯穿头：保留但极度克制
+参考图本身没有贯穿头，但子幕需要让 HR 知道"还在 About Me 章节内"。
+折中：保留"About Me · 子幕 a/b · ..."贯穿头，但用 `--ink-2` 灰色 + 极小字 + opacity 0.45，
+绝不抢主标题。如果未来负责人觉得仍多余，可以一键删（删 `.about-chapter` 段 + 组件里那行）。
+
+#### 2.3 头像照片暂用 placeholder + TODO
+负责人未提供本人照片。当前是灰底渐变 + 虚线边框 + "陈彦均 · PORTRAIT · TBD"。
+做法：照片放 `web/public/me.jpg`，把 placeholder div 整块换成 `<img src="/me.jpg" alt="陈彦均" />`。
+
+---
+
+### 3. 踩坑记录
+
+#### 3.1 ❗ JSX 字符串里中文""被悄悄替换为 ASCII " → build error
+**症状**：第一次写 capability-bridge.tsx 时，10+ 处 leftDetail/rightDetail 字段里的中文""引号
+被工具或键盘自动转换为 ASCII `"`，导致 string literal 嵌套，Turbopack 报：
+
+```
+Expected ',', got 'ident'
+```
+
+**修复**：所有含内层引号的长字符串改用 **反引号 `` ` ``** 模板字符串，
+内层 ASCII `"` 不再被识别为字符串边界。
+
+**长期教训**：以后所有含中文长引号的 string literal 一律用 backtick，
+不要赌"应该是中文""——尽量从根上消除歧义。
+
+#### 3.2 ❗ 我凭空设计 About Me 视觉，没等参考图就动手
+**症状**：第一版 about-me.tsx 加了圆形头像、accent 色装饰、章节贯穿小标题、CTA 按钮等 —
+所有这些都不在负责人的视觉预期里。
+
+**根因**：负责人之前只给了内容方向（照片、基本信息、教育、工作、AI 项目、子幕跳转），
+没指定视觉风格。我没主动确认视觉参考，按"信息看板"自由发挥了一版。
+
+**修复**：负责人提供 LIUWENTAO 参考图后，按图严格复刻。
+
+**长期教训**：内容方向 ≠ 视觉方向。下次接到"做新幕"的任务，
+**主动追问视觉参考图或样式参考**，不要凭空发挥。
+
+#### 3.3 capability-bridge.tsx 没进 initial commit
+**症状**：阶段一 commit (8323f62) 时 capability-bridge.tsx 还没写，
+所以 initial commit 里没有它。本阶段 commit 时它显示为新增 (`??`)。
+
+**不算错**：只是阶段切分的自然结果。但说明了"每一阶段就 commit"的重要性 —
+如果阶段一时第二幕已开发到一半，应该独立 commit，而不是混进 initial commit 里。
+
+---
+
+### 4. 待办（不阻塞当前 commit）
+
+- **[负责人]** 提供本人照片，放到 `web/public/me.jpg`
+- **[负责人]** 补全分身知识库的教育/工作精确字段（南工大全名 / 上海隆际全名 / 时间），
+  避免分身被问到时拿不到准信息
+- **[负责人]** 第三幕 / 作品集（原第四幕）的两个深度档案：云上米轨 + 建景规
+- **[Claude Code]** 章节贯穿头是否要进一步去掉 — 等负责人体验后定
+
+---
+
+### 5. 下一阶段候选
+
+- 第三幕 · 作品集（按 PROJECT_GUIDE 4.4 节，V1 用静态分区图 + 项目卡片）
+- 或：先把 AI 分身后端骨架搭起来（DeepSeek + `/api/chat` + 系统提示词 + 防护）
+
+---
+
+## 2026-06-04 ~ 06 · 阶段一：项目从 0 到 Hero v1
+
+### 1. 已完成
+
+#### 1.1 项目基础设施
+- **脚手架**：Next.js 16.2.6 + React 19.2.4 + TypeScript 6.0.3 + Tailwind v4 + App Router + src/ 目录结构
+- **包管理**：pnpm（用 corepack 激活，无需手动 `npm i -g`）
+- **位置**：项目根 = `~/Documents/项目开发/网页作品集/`；Next.js 项目放在 `web/` 子目录；`docs/` `md/` `图片/` `作品集项目文件/` `claude design/` 等素材与 `web/` 平级
+- **Git**：本地仓库初始化在项目根 `网页作品集/`，分支 `main`，远端 = `github.com:ChenYanjun-hub/<repo>`（首次 push 时在本日志记录最终仓库名）
+
+#### 1.2 第一幕 Hero
+- **设计来源**：用户在 Claude Design 工具里做了完整 Hero v1 设计稿，存到 `claude design/untitled/project/` 作为 handoff bundle
+- **移植到 Next.js**：所有视觉迁到 `web/src/app/globals.css`（全局 CSS）；交互逻辑迁到 `web/src/components/sections/hero.tsx`（client component）
+- **保留的设计语言**：
+  - 主色 `#D8552E` 制图橙红（accent）
+  - 视觉签名 = **十字准星 + 实时坐标 `E xxx.x N xxx.x`**（"规划师 / 工程图"母题的具象化交互）
+  - 入场动画 = 6 元素 stagger fade-in（尊重 `prefers-reduced-motion`）
+  - 背景 = AIGC 城市轴测线稿（`hero-bg.png`，3.4MB）+ radial veil 蒙版
+  - 顶部 nav（数字名片 / 能力对照 / 具备技能 / 作品集 / 视觉与生活 / 联系方式 / 留言板）
+  - 底部"OPEN TO 2026 OPPORTUNITIES" + 绿色脉冲
+- **用户后续微调**：
+  - 暂时隐藏"求职意向"eyebrow 板块（用 `SHOW_EYEBROW` 常量开关，未来恢复改一行）
+  - tagline `1 Person + AI = A Team` 字号从 `clamp(22-46px)` 放大到 `clamp(36-80px)`，几乎与主姓名 138px 旗鼓相当
+  - 主姓名"陈彦均"启用得意黑 / Smiley Sans Oblique 字体（向右上倾斜、超粗，制造"年轻 / 锐利"反差）
+
+#### 1.3 字体策略
+- **拉丁 sans**：完全走系统字体回退链（macOS SF Pro / Windows Segoe UI），不引入 web font
+- **中文**：系统字体回退链（PingFang SC / Microsoft YaHei）+ Noto Sans SC 作 fallback name；**不引入** Noto Sans SC web font（中文字库太大，国内可达性考虑）
+- **Tagline**：`next/font/google` 引入 Permanent Marker（拉丁手写马克笔体，几十 KB）
+- **主姓名**：`next/font/local` 引入 Smiley Sans Oblique（1.1MB woff2，本地托管，display:swap）
+
+---
+
+### 2. 关键决策记录
+
+#### 2.1 包管理器选 pnpm，不选 npm
+原因：pnpm 装得快、磁盘占用少。代价：偶尔遇教程不匹配。可接受。
+
+#### 2.2 项目根分两层
+- `网页作品集/`（仓库根）：包含 `docs/`、`md/`、`图片/`、`作品集项目文件/`、`claude design/`、`web/`、PROJECT_GUIDE 等
+- `web/`：纯 Next.js 项目，独立可移植
+
+理由：素材与代码分开，docs 跟着仓库走，未来加后端 / 添加其他子项目时易扩展。
+
+#### 2.3 AI 分身模型选 DeepSeek
+方向已定（PROJECT_GUIDE 首选）：性价比高、指令遵循能力好、国内访问稳定。**待定**：API Key 申请、模型可替换层封装具体实现。
+
+#### 2.4 域名 `cyjpersonalweb.cn` 已购，ICP 备案进行中
+备案是上线瓶颈（7-20 工作日）。不阻塞代码开发。
+
+#### 2.5 Hero V1 提前用上 AIGC 城市轴测背景图
+PROJECT_GUIDE 原方案 V1 用纯白、V2 加背景。但 Claude Design 稿已经把背景图、蒙版、veil 都调好了，提前用上的边际成本接近 0。
+
+#### 2.6 入场动画提前到 V1
+原方案 V1 静态、V2 加动效。但 6 元素 stagger fade-in 是 Hero 氛围的关键一部分，去掉显得平。且支持 `prefers-reduced-motion`，对动效敏感用户无害。
+
+---
+
+### 3. 踩坑记录（教育性高，必读）
+
+#### 3.1 ❗ Turbopack 文件监听越界 → next-server 吃 60GB 内存 → 系统卡死
+
+**症状**：跑 `pnpm dev` 后几分钟，活动监视器里 next-server 进程内存涨到 60GB，整机卡死必须重启。
+
+**根因链**：
+1. `~/Documents/项目开发/`（即 web 的上两层）有 shadcn 残留：`package.json`（只装了 shadcn）+ `pnpm-workspace.yaml` + `pnpm-lock.yaml` + `package-lock.json` + 204MB 的 `node_modules`
+2. Turbopack 的 workspace 检测**优先于** `turbopack.root` 配置——它顺着 `pnpm-workspace.yaml` / lockfile 把项目根错推到上层
+3. `~/Documents/项目开发/` 下面有 4GB+ 的兄弟项目（建景规 1.8GB、滇越铁路 1.1GB、菜谱 290MB 等），全部被纳入文件监听
+4. 几十万个 fs.watch 句柄 → 内存爆 → 卡死
+
+**修复**：两步
+- 把 `~/Documents/项目开发/` 下的 4 个残留配置文件 + node_modules 全部 `mv` 到 `_archive-shadcn-residue-20260605/`（不删，可还原）
+- 在 `web/next.config.ts` 显式 `bundler: 'webpack'` 切回 webpack——稳定性优先于 HMR 速度
+
+**回退条件**：未来如果 Turbopack 修复了这个 workspace 检测问题（或我们换更彻底的项目根隔离），可以把 `bundler: 'webpack'` 删掉切回 Turbopack。当前 `turbopack.root: process.cwd()` 已保留在配置里，方便届时直接切回。
+
+#### 3.2 `next.config.ts` 不能用 runtime `import` 语句
+
+**症状**：当我在 `next.config.ts` 用 `import { dirname } from "node:path"` 时，dev server 报：
+
+```
+× Failed to load next.config.ts
+ReferenceError: exports is not defined in ES module scope
+   at <unknown> (next.config.compiled.js:2:23)
+```
+
+**根因**：Next.js 用 esbuild 编译 `next.config.ts` 时，runtime import 会触发 CJS/ESM 模式识别冲突——产物用 `exports.x` 但被当 ESM 加载。
+
+**修复**：`next.config.ts` 里**只用 `import type`**（编译后 0 字节），不要任何 runtime import。需要的运行时变量改用 `process.cwd()` 这类 Node.js 全局 API。
+
+#### 3.3 GitHub release CDN 国内不可达（字体下载）
+
+**症状**：用 `curl` 拉得意黑字体时，无论是 `release-assets.githubusercontent.com` 还是 `github.moeyy.xyz` 镜像，都 SSL 握手失败。
+
+**修复**：让用户在浏览器手动下载 `smiley-sans-v2.0.1.zip`（浏览器能走 HTTP/2 + 自动重路由），解压后拖到 `web/src/app/fonts/`。
+
+**长期教训**：项目里任何字体 / 模型 / 资产，能 npm/pnpm 拉的就走包管理器；不能的就提前问用户网络环境，做好"手动下载"预案。
+
+#### 3.4 Claude Code 不应替用户后台跑 dev server
+
+**踩坑过程**：开发早期我让 dev server 在 Claude Code 后台跑了 3 次，每次 session 切换可能产生孤儿进程，内存难定位。
+
+**修复 = 工作流变更**：今后 dev server **只由用户在自己终端跑**——掌握 Ctrl+C 主动权、看实时输出、不跨 session。Claude Code 负责"写代码 / 改文件 / 读日志 / 一次性命令"，不负责管常驻进程。
+
+---
+
+### 4. 当前已知开放问题（不影响 commit）
+
+- **得意黑字体 1.1MB**：生产首屏会有一次 "PingFang SC → 得意黑" 的 swap 跳变。V2 优化方案：用 `pyftsubset` 做中文 subset，只保留实际渲染的几个字符（"陈彦均"），能压到 < 10KB。
+- **`claude design/` 目录 17MB**：作为设计史归档入库。如果后续仓库体积成为问题，可以考虑迁到 git LFS 或单独的 design 仓库。
+- **第二~第六幕全部待开发**：sections/ 目录只有 hero.tsx 一个文件。下一阶段优先级排序见 PROJECT_GUIDE 第 6 节。
+
+---
+
+### 5. 下一阶段（候选）
+
+- Hero 微调收尾（如有视觉调整）
+- 第二幕：能力对照（信任引擎）—— 内容已在分身知识库 1.4 定稿
+- 或：先把 AI 分身后端骨架搭起来（API Route + DeepSeek + 系统提示词 + 防护）
+
+待用户拍板。
